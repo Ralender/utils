@@ -70,6 +70,7 @@ class any_callable<R(Args...), sbo_size> : sbo_base<sbo_size> {
     } else {
       this->_alloced_ptr = other._alloced_ptr;
     }
+    other._size = 0;
   }
  public:
   constexpr static std::size_t buff_size = sbo_size;
