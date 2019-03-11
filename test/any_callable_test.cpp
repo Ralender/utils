@@ -327,6 +327,24 @@ TEST(callable, compare_unwrapped_statefull_lambda_false) {
   ASSERT_EQ(labmda2 != a, true);
 }
 
+TEST(callable, compare_nullptr_true) {
+  any_callable<int(int)> a;
+
+  ASSERT_EQ(a == nullptr, true);
+  ASSERT_EQ(a != nullptr, false);
+  ASSERT_EQ(nullptr == a, true);
+  ASSERT_EQ(nullptr != a, false);
+}
+
+TEST(callable, compare_nullptr_false) {
+  any_callable<int(int)> a([](int a) { return a; });
+
+  ASSERT_EQ(a == nullptr, false);
+  ASSERT_EQ(a != nullptr, true);
+  ASSERT_EQ(nullptr == a, false);
+  ASSERT_EQ(nullptr != a, true);
+}
+
 TEST(callable, operator_bool_false) {
   any_callable<int()> a;
 

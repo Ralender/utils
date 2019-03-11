@@ -139,6 +139,12 @@ class any_callable<R(Args...), sbo_size> : sbo_base<sbo_size> {
   friend bool operator !=(const T& value, const any_callable<R(Args...), sbo_size>& first) noexcept {
     return !(first == value);
   }
+  friend bool operator ==(const any_callable<R(Args...), sbo_size>& first, std::nullptr_t) noexcept {
+    return first.invoke_ptr == nullptr;
+  }
+  friend bool operator ==(std::nullptr_t, const any_callable<R(Args...), sbo_size>& first) noexcept {
+    return first.invoke_ptr == nullptr;
+  }
   any_callable(any_callable&) = delete;
   any_callable& operator =(any_callable&) = delete;
   ~any_callable() {
