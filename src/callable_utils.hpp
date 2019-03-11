@@ -6,6 +6,7 @@
 #define UTILS_INVOKABLE_TRAITS_HPP
 
 #include <type_traits>
+#include <utility>
 
 namespace sg {
 
@@ -30,6 +31,12 @@ struct is_instance_of : std::false_type {};
 
 template<template<typename, auto> class M, typename T, auto N>
 struct is_instance_of<M<T, N>, M> : std::true_type {};
+
+template<typename, typename>
+struct is_same_sig : std::false_type {};
+
+template<template<typename, auto> class C, typename Sig, auto N, auto M>
+struct is_same_sig<C<Sig, N>, C<Sig, M>> : std::true_type {};
 
 /**
  * @brief similar to std::forward but adapted to a context where the real type can't be deduced

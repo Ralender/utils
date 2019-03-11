@@ -17,7 +17,6 @@ class any_callable;
 template<typename R, typename ... Args, std::size_t sbo_size>
 class any_callable<R(Args...), sbo_size> : sbo_base<sbo_size> {
  private:
-  using base = sbo_base<sbo_size>;
   using invoke_ptr_type = R(*)(void*, Args...);
   using destroy_ptr_type = void (*)(void*);
   using move_ptr_type = void (*)(void*, void*);
@@ -57,8 +56,9 @@ class any_callable<R(Args...), sbo_size> : sbo_base<sbo_size> {
   }
   template<typename T>
   void move_to_self(T&& other) noexcept {
+    static_assert(is_same_sig<std::decay_t<decltype(*this)>, std::decay_t<T>>::value, "signature don't match");
     static_assert(std::decay_t<T>::buff_size <= sbo_size, "noexcept can't be garenteed");
-    //because sbo can be to small for the current type but fit in the other type so and allocation could be necessary
+    //because sbo can be to small for the current type but fit in the other type so allocation could be necessary and fail
     this->_size = other._size;
     invoke_ptr = other.invoke_ptr;
     destroy_ptr = other.destroy_ptr;
@@ -71,8 +71,11 @@ class any_callable<R(Args...), sbo_size> : sbo_base<sbo_size> {
       this->_alloced_ptr = other._alloced_ptr;
     }
     other._size = 0;
+    other.invoke_ptr = nullptr;
   }
  public:
+  template<typename T>
+  constexpr static bool fit_sbo = sizeof(std::decay_t<T>) <= sbo_size;
   constexpr static std::size_t buff_size = sbo_size;
   any_callable() = default;
   template<typename T, std::enable_if_t<!sg::is_instance_of<std::decay_t<T>, any_callable>::value, int> = 0>
@@ -90,27 +93,51 @@ class any_callable<R(Args...), sbo_size> : sbo_base<sbo_size> {
     move_to_self(std::forward<T>(other));
   }
   template<typename T, std::enable_if_t<sg::is_instance_of<std::decay_t<T>, any_callable>::value, int> = 0>
-  any_callable& operator =(T&& other) {
+  any_callable& operator =(T&& other) noexcept {
     destroy();
     move_to_self(std::forward<T>(other));
     return (*this);
   }
   R operator ()(Args... args) const {
+    assert(invoke_ptr);
     return invoke_ptr(this->ptr(), propagate(args)...);
   }
   explicit operator bool() const noexcept {
     return invoke_ptr;
   }
   bool is_empty() const noexcept {
-    return invoke_ptr;
+    return invoke_ptr == nullptr;
   }
-  bool is_sbo() const noexcept {
-    return this->sbo_base<sbo_size>::is_sbo();
+  template<typename T, std::enable_if_t<sg::is_instance_of<std::decay_t<T>, any_callable>::value, int> = 0>
+  bool operator ==(const T& other) const noexcept {
+    if (invoke_ptr == &invoke_func<R(*)(Args...)> && other.invoke_ptr == invoke_ptr) {
+      return (*reinterpret_cast<R(**)(Args...)>(this->ptr())) == (*reinterpret_cast<R(**)(Args...)>(other.ptr()));
+    } else
+      return invoke_ptr == other.invoke_ptr;
   }
-  bool operator ==(const any_callable& other) {
-    return invoke_ptr == other.invoke_ptr &&
-      destroy_ptr == other.destroy_ptr &&
-      move_ptr == other.move_ptr;
+  template<typename T, std::enable_if_t<!sg::is_instance_of<std::decay_t<T>, any_callable>::value, int> = 0>
+  friend bool operator ==(const any_callable<R(Args...), sbo_size>& first, const T& value) noexcept {
+    sig_asserts<typename std::decay<T>::type, R(Args...)> check;
+    static_assert(std::is_nothrow_move_constructible_v<T>);
+    using inplace_type = std::decay_t<T>;
+
+    if constexpr (std::is_constructible_v<inplace_type, R(*)(Args...)>) {
+      if (first.invoke_ptr == &invoke_func<R(*)(Args...)>)
+        return (*reinterpret_cast<R(**)(Args...)>(first.ptr())) == static_cast<R(*)(Args...)>(value);
+    }
+    return first.invoke_ptr == &invoke_func<inplace_type>;
+  }
+  template<typename T, std::enable_if_t<!sg::is_instance_of<std::decay_t<T>, any_callable>::value, int> = 0>
+  friend bool operator ==(const T& value, const any_callable<R(Args...), sbo_size>& first) noexcept {
+    return (first == value);
+  }
+  template<typename T>
+  friend bool operator !=(const any_callable<R(Args...), sbo_size>& first, const T& value) noexcept {
+    return !(first == value);
+  }
+  template<typename T, std::enable_if_t<!sg::is_instance_of<std::decay_t<T>, any_callable>::value, int> = 0>
+  friend bool operator !=(const T& value, const any_callable<R(Args...), sbo_size>& first) noexcept {
+    return !(first == value);
   }
   any_callable(any_callable&) = delete;
   any_callable& operator =(any_callable&) = delete;

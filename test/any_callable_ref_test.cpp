@@ -6,21 +6,21 @@
 #include <gtest/gtest.h>
 #include "src/any_callable_ref.hpp"
 
-void free_add1_ref(int& a) {
+inline void free_add1_ref(int& a) {
   a++;
 }
 
-int free_add1(int a) {
+inline int free_add1(int a) {
   return a + 1;
 }
 
-std::string free_add_a(const std::string& str) {
+inline std::string free_add_a(const std::string& str) {
   return str + 'a';
 }
 
-int global = 0;
+inline int global = 0;
 
-void free_func() {
+inline void free_func() {
   global++;
 }
 

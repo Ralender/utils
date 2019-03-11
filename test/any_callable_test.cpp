@@ -5,14 +5,34 @@
 #include <gtest/gtest.h>
 #include "src/any_callable.hpp"
 
-void free_add1_ref(int& a);
-int free_add1(int a);
-std::string free_add_a(const std::string& str);
-extern int global;
-void free_func();
+inline void free_add1_ref(int& a) {
+  a++;
+}
+
+inline int free_add1(int a) {
+  return a + 1;
+}
+
+inline int free_add2(int a) {
+  return a + 2;
+}
+
+inline std::string free_add_a(const std::string& str) {
+  return str + 'a';
+}
+
+inline int global = 0;
+
+inline void free_func() {
+  global++;
+}
+
+template<typename T>
+using any_callable = sg::any_callable<T, 8>;
+//to make std:string not fit in sbo
 
 TEST(callable, call_stateless_lambda_int) {
-  sg::any_callable<int(int)> add1([](int i) {
+  any_callable<int(int)> add1([](int i) {
     return i + 1;
   });
   ASSERT_EQ(add1(1), 2);
@@ -20,7 +40,7 @@ TEST(callable, call_stateless_lambda_int) {
 }
 
 TEST(callable, call_stateless_lambda_string) {
-  sg::any_callable<std::string(std::string)> add1([](std::string i) {
+  any_callable<std::string(std::string)> add1([](std::string i) {
     return i + 'a';
   });
   ASSERT_EQ(add1(""), "a");
@@ -28,7 +48,7 @@ TEST(callable, call_stateless_lambda_string) {
 }
 
 TEST(callable, call_stateless_lambda_int_ref) {
-  sg::any_callable<void(int&)> add1([](int& i) {
+  any_callable<void(int&)> add1([](int& i) {
     i = i + 1;
   });
   int i = 1;
@@ -39,7 +59,7 @@ TEST(callable, call_stateless_lambda_int_ref) {
 }
 
 TEST(callable, call_stateless_lambda_string_ref) {
-  sg::any_callable<void(std::string&)> add1([](std::string& i) {
+  any_callable<void(std::string&)> add1([](std::string& i) {
     i += 'a';
   });
   std::string tmp = "b";
@@ -52,7 +72,7 @@ TEST(callable, call_stateless_lambda_string_ref) {
 
 TEST(callable, call_statefull_ref_lambda_int) {
   int i = 0;
-  sg::any_callable<void()> add1([&i]() {
+  any_callable<void()> add1([&i]() {
     i++;
   });
 
@@ -65,7 +85,7 @@ TEST(callable, call_statefull_ref_lambda_int) {
 
 TEST(callable, call_statefull_ref_lambda_string) {
   std::string str;
-  sg::any_callable<void()> adda([&]() {
+  any_callable<void()> adda([&]() {
     str.push_back('a');
   });
   ASSERT_EQ(str, "");
@@ -77,7 +97,7 @@ TEST(callable, call_statefull_ref_lambda_string) {
 
 TEST(callable, call_statefull_copy_lambda_int) {
   int i = -2;
-  sg::any_callable<int()> ref([=]() {
+  any_callable<int()> ref([=]() {
     return i;
   });
   ASSERT_EQ(ref(), -2);
@@ -85,20 +105,20 @@ TEST(callable, call_statefull_copy_lambda_int) {
 
 TEST(callable, call_statefull_copy_lambda_string) {
   std::string i = "a";
-  sg::any_callable<std::string()> ref([=]() {
+  any_callable<std::string()> ref([=]() {
     return i;
   });
   ASSERT_EQ(ref(), "a");
 }
 
 TEST(callable, call_func_ptr_int) {
-  sg::any_callable<int(int)> ref(&free_add1);
+  any_callable<int(int)> ref(&free_add1);
   ASSERT_EQ(ref(1), 2);
   ASSERT_EQ(ref(ref(1)), 3);
 }
 
 TEST(callable, call_func_ptr_int_ref) {
-  sg::any_callable<void(int&)> ref(&free_add1_ref);
+  any_callable<void(int&)> ref(&free_add1_ref);
   int tmp = 0;
   ASSERT_EQ(tmp, 0);
   ref(tmp);
@@ -109,7 +129,7 @@ TEST(callable, call_func_ptr_int_ref) {
 
 TEST(callable, call_func_ptr_global_state) {
   global = 0;
-  sg::any_callable<void()> ref(free_func);
+  any_callable<void()> ref(free_func);
   ASSERT_EQ(global, 0);
   ref();
   ASSERT_EQ(global, 1);
@@ -118,20 +138,28 @@ TEST(callable, call_func_ptr_global_state) {
 }
 
 TEST(callable, move_call_stateless_lambda) {
-  sg::any_callable<int(int)> add1([](int i) {
+  any_callable<int(int)> add1([](int i) {
     return i + 1;
   });
-  sg::any_callable<int(int)> cop(std::move(add1));
+  any_callable<int(int)> cop(std::move(add1));
+  ASSERT_EQ(cop(1), 2);
+  ASSERT_EQ(cop(cop(1)), 3);
+}
+
+TEST(callable, move_func_ptr_int) {
+  any_callable<int(int)> ref(&free_add1);
+
+  any_callable<int(int)> cop(std::move(ref));
   ASSERT_EQ(cop(1), 2);
   ASSERT_EQ(cop(cop(1)), 3);
 }
 
 TEST(callable, move_call_statefull_ref_lambda_int) {
   int i = 0;
-  sg::any_callable<void()> add1([&i]() {
+  any_callable<void()> add1([&i]() {
     i++;
   });
-  sg::any_callable<void()> cop(std::move(add1));
+  any_callable<void()> cop(std::move(add1));
   ASSERT_EQ(i, 0);
   cop();
   ASSERT_EQ(i, 1);
@@ -141,10 +169,10 @@ TEST(callable, move_call_statefull_ref_lambda_int) {
 
 TEST(callable, move_call_statefull_ref_lambda_string) {
   std::string str;
-  sg::any_callable<void()> adda([&]() {
+  any_callable<void()> adda([&]() {
     str.push_back('a');
   });
-  sg::any_callable<void()> cop(std::move(adda));
+  any_callable<void()> cop(std::move(adda));
   ASSERT_EQ(str, "");
   cop();
   ASSERT_EQ(str, "a");
@@ -154,19 +182,184 @@ TEST(callable, move_call_statefull_ref_lambda_string) {
 
 TEST(callable, move_call_statefull_copy_lambda_int) {
   int i = -2;
-  sg::any_callable<int()> ref([=]() {
+  any_callable<int()> ref([=]() {
     return i;
   });
-  sg::any_callable<int()> cop(std::move(ref));
+  any_callable<int()> cop(std::move(ref));
   ASSERT_EQ(cop(), -2);
 }
 
 TEST(callable, move_call_statefull_copy_lambda_string) {
   std::string i = "a";
-  sg::any_callable<std::string()> ref([=]() {
+  any_callable<std::string()> ref([=]() {
     return i;
   });
-  sg::any_callable<std::string()> cop(std::move(ref));
+  any_callable<std::string()> cop(std::move(ref));
   ASSERT_EQ(cop(), "a");
 }
 
+TEST(callable, compare_wrapped_func_ptr_int_true) {
+  any_callable<int(int)> a(&free_add1);
+
+  any_callable<int(int)> b(&free_add1);
+  ASSERT_EQ(a == b, true);
+  ASSERT_EQ(a != b, false);
+  ASSERT_EQ(b == a, true);
+  ASSERT_EQ(b != a, false);
+}
+
+TEST(callable, compare_wrapped_func_ptr_int_false) {
+  any_callable<int(int)> a(&free_add1);
+
+  any_callable<int(int)> b(&free_add2);
+  ASSERT_EQ(a == b, false);
+  ASSERT_EQ(a != b, true);
+  ASSERT_EQ(b == a, false);
+  ASSERT_EQ(b != a, true);
+}
+
+TEST(callable, compare_wrapped_stateless_lambda_true) {
+  auto labmda = [](int a) { return a + 1; };
+  any_callable<int(int)> a(labmda);
+
+  any_callable<int(int)> b(labmda);
+  ASSERT_EQ(a == b, true);
+  ASSERT_EQ(a != b, false);
+  ASSERT_EQ(b == a, true);
+  ASSERT_EQ(b != a, false);
+}
+
+TEST(callable, compare_wrapped_stateless_lambda_false) {
+  auto labmda1 = [](int a) { return a + 1; };
+  auto labmda2 = [](int a) { return a + 2; };
+  any_callable<int(int)> a(labmda1);
+
+  any_callable<int(int)> b(labmda2);
+  ASSERT_EQ(a == b, false);
+  ASSERT_EQ(a != b, true);
+  ASSERT_EQ(b == a, false);
+  ASSERT_EQ(b != a, true);
+}
+
+TEST(callable, compare_wrapped_statefull_lambda_true) {
+  int i = 1;
+  auto labmda = [i](int a) { return a + i; };
+  any_callable<int(int)> a(labmda);
+
+  any_callable<int(int)> b(labmda);
+  ASSERT_EQ(a == b, true);
+  ASSERT_EQ(a != b, false);
+  ASSERT_EQ(b == a, true);
+  ASSERT_EQ(b != a, false);
+}
+
+TEST(callable, compare_wrapped_statefull_lambda_false) {
+  int i = 0;
+  auto labmda1 = [i](int a) { return a + i; };
+  auto labmda2 = [](int a) { return a + 2; };
+  any_callable<int(int)> a(labmda1);
+
+  any_callable<int(int)> b(labmda2);
+  ASSERT_EQ(a == b, false);
+  ASSERT_EQ(a != b, true);
+  ASSERT_EQ(b == a, false);
+  ASSERT_EQ(b != a, true);
+}
+
+TEST(callable, compare_unwrapped_func_ptr_int_true) {
+  any_callable<int(int)> a(&free_add1);
+
+  ASSERT_EQ(a == &free_add1, true);
+  ASSERT_EQ(a != &free_add1, false);
+  ASSERT_EQ(&free_add1 == a, true);
+  ASSERT_EQ(&free_add1 != a, false);
+}
+
+TEST(callable, compare_unwrapped_func_ptr_int_false) {
+  any_callable<int(int)> a(&free_add1);
+  ASSERT_EQ(a == &free_add2, false);
+  ASSERT_EQ(a != &free_add2, true);
+  ASSERT_EQ(&free_add2 == a, false);
+  ASSERT_EQ(&free_add2 != a, true);
+}
+
+TEST(callable, compare_unwrapped_stateless_lambda_true) {
+  auto labmda = [](int a) { return a + 1; };
+  any_callable<int(int)> a(labmda);
+
+  ASSERT_EQ(a == labmda, true);
+  ASSERT_EQ(a != labmda, false);
+  ASSERT_EQ(labmda == a, true);
+  ASSERT_EQ(labmda != a, false);
+}
+
+TEST(callable, compare_unwrapped_stateless_lambda_false) {
+  auto labmda1 = [](int a) { return a + 1; };
+  auto labmda2 = [](int a) { return a + 2; };
+  any_callable<int(int)> a(labmda1);
+
+  ASSERT_EQ(a == labmda2, false);
+  ASSERT_EQ(a != labmda2, true);
+  ASSERT_EQ(labmda2 == a, false);
+  ASSERT_EQ(labmda2 != a, true);
+}
+
+TEST(callable, compare_unwrapped_statefull_lambda_true) {
+  int i = 1;
+  auto labmda = [i](int a) { return a + i; };
+  any_callable<int(int)> a(labmda);
+
+  ASSERT_EQ(a == labmda, true);
+  ASSERT_EQ(a != labmda, false);
+  ASSERT_EQ(labmda == a, true);
+  ASSERT_EQ(labmda != a, false);
+}
+
+TEST(callable, compare_unwrapped_statefull_lambda_false) {
+  int i = 0;
+  auto labmda1 = [i](int a) { return a + i; };
+  auto labmda2 = [](int a) { return a + 2; };
+  any_callable<int(int)> a(labmda1);
+
+  ASSERT_EQ(a == labmda2, false);
+  ASSERT_EQ(a != labmda2, true);
+  ASSERT_EQ(labmda2 == a, false);
+  ASSERT_EQ(labmda2 != a, true);
+}
+
+TEST(callable, operator_bool_false) {
+  any_callable<int()> a;
+
+  ASSERT_EQ(static_cast<bool>(a), false);
+}
+
+TEST(callable, operator_bool_true) {
+  int i = 0;
+  any_callable<int(int)> a([=](int v) { return v + i; });
+
+  ASSERT_EQ(static_cast<bool>(a), true);
+}
+
+TEST(callable, is_empty_true) {
+  any_callable<int()> a;
+
+  ASSERT_EQ(a.is_empty(), true);
+}
+
+TEST(callable, is_empty_false) {
+  int i = 0;
+  any_callable<int(int)> a([=](int v) { return v + i; });
+
+  ASSERT_EQ(a.is_empty(), false);
+}
+
+TEST(callable, type_traits) {
+  static_assert(std::is_nothrow_move_constructible_v<any_callable<int()>>);
+  static_assert(std::is_nothrow_move_constructible_v<any_callable<std::string(std::string)>>);
+  static_assert(std::is_nothrow_move_assignable_v<any_callable<int()>>);
+  static_assert(std::is_nothrow_move_assignable_v<any_callable<std::string(std::string)>>);
+  static_assert(std::is_same_v<int, std::decay_t<decltype(std::declval<const any_callable<int()>>()())>>);
+  static_assert(std::is_same_v<std::string,
+                               std::decay_t<decltype(std::declval<const any_callable<std::string(std::string)>>()(std::declval<
+                                 std::string>()))>>);
+}
