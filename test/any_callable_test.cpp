@@ -1,35 +1,41 @@
-//
-// Created by tyker on 2/13/19.
-//
+/*
+ * tests for any_callable
+ */
 
 #include <gtest/gtest.h>
 #include "src/any_callable.hpp"
 
-inline void free_add1_ref(int& a) {
+namespace {
+
+void free_add1_ref(int& a) {
   a++;
 }
 
-inline int free_add1(int a) {
+int free_add1(int a) {
   return a + 1;
 }
 
-inline int free_add2(int a) {
+int free_add2(int a) {
   return a + 2;
 }
 
-inline std::string free_add_a(const std::string& str) {
+std::string free_add_a(const std::string& str) {
   return str + 'a';
 }
 
-inline int global = 0;
+int global = 0;
 
-inline void free_func() {
+void free_func() {
   global++;
 }
 
 template<typename T>
 using any_callable = sg::any_callable<T, 8>;
-//to make std:string not fit in sbo
+
+static_assert(!any_callable<void()>::fit_sbo < std::string > );
+// string is used as a non-trivial type that doesn't fit in sbo
+
+}
 
 TEST(callable, call_stateless_lambda_int) {
   any_callable<int(int)> add1([](int i) {

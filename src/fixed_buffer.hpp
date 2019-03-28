@@ -1,6 +1,6 @@
-//
-// Created by tyker on 8/15/18.
-//
+/*
+ * type similar to std::vector but for non-copyable and non-movable types. with the required adaptations
+ */
 
 #ifndef MT_TESTS_FIXED_BUFF_HPP
 #define MT_TESTS_FIXED_BUFF_HPP

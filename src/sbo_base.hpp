@@ -1,6 +1,6 @@
-//
-// Created by tyker on 1/14/19.
-//
+/*
+ * type to be inherited from that handle an sbo buffer
+ */
 
 #ifndef UTILS_SBO_BASE_HPP
 #define UTILS_SBO_BASE_HPP
@@ -32,7 +32,6 @@ class sbo_base : private Allocator {
     if (!is_sbo())
       this->deallocate(_alloced_ptr);
   }
- public:
   sbo_base() = default;
   sbo_base(const sbo_base&) = delete;
   sbo_base& operator =(const sbo_base&) = delete;

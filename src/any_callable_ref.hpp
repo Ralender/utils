@@ -1,6 +1,6 @@
-//
-// Created by tyker on 12/8/18.
-//
+/*
+ * type similar to std::function but non-owning.
+ */
 
 #ifndef UTILS_CALLABLE_REF_HPP
 #define UTILS_CALLABLE_REF_HPP
@@ -25,7 +25,7 @@ class any_callable_ref<R(Args...)> {
   any_callable_ref() noexcept = default;
   template<typename Callable, typename std::enable_if_t<
     !std::is_same_v<std::decay_t<Callable>, any_callable_ref>, int> = 0>
-  any_callable_ref(Callable&& func) noexcept {
+  explicit any_callable_ref(Callable&& func) noexcept {
     sig_asserts<typename std::decay<Callable>::type, R(Args...)> check;
     data = reinterpret_cast<void*>(std::addressof(func));
     call_ptr = [](void* func, Args... args) -> R {

@@ -1,3 +1,7 @@
+/*
+ * experimantal type-ereased list where the node and the data it contains are in the same allocation
+ */
+
 
 #ifndef SG_ANY_LIST_H
 #define SG_ANY_LIST_H
@@ -145,7 +149,7 @@ class any_list {
   }
   template<typename T, typename ... Ts>
   void emplace_front(Ts&& ... ts) {
-    node_base::ptr_type tmp = node_base::ptr_type(new node<T>(nullptr, std::move(_begin), std::forward<Ts>(ts)...));
+    node_base::ptr_type tmp = node_base::ptr_type(new node<T>(nullptr, _begin, std::forward<Ts>(ts)...));
     if (_begin == nullptr) {
       assert(!_end);
       _begin = std::move(tmp);

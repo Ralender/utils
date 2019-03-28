@@ -1,27 +1,30 @@
-//
-// Created by tyker on 1/6/19.
-//
-
+/*
+ * tests for any_callable_ref
+ */
 
 #include <gtest/gtest.h>
 #include "src/any_callable_ref.hpp"
 
-inline void free_add1_ref(int& a) {
+namespace {
+
+void free_add1_ref(int& a) {
   a++;
 }
 
-inline int free_add1(int a) {
+int free_add1(int a) {
   return a + 1;
 }
 
-inline std::string free_add_a(const std::string& str) {
+std::string free_add_a(const std::string& str) {
   return str + 'a';
 }
 
-inline int global = 0;
+int global = 0;
 
-inline void free_func() {
+void free_func() {
   global++;
+}
+
 }
 
 TEST(callable_ref, call_stateless_lambda_int) {

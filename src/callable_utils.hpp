@@ -1,6 +1,6 @@
-//
-// Created by tyker on 3/7/19.
-//
+/*
+ * common utilities frome any_callable and any_callable_ref
+ */
 
 #ifndef UTILS_INVOKABLE_TRAITS_HPP
 #define UTILS_INVOKABLE_TRAITS_HPP
@@ -26,17 +26,17 @@ struct sig_asserts<T, R(Args...)> {
                 "return type of signature and callable don't match");
 };
 
-template<typename, template<typename, auto> class>
+template<typename, template<typename, auto...> class>
 struct is_instance_of : std::false_type {};
 
-template<template<typename, auto> class M, typename T, auto N>
-struct is_instance_of<M<T, N>, M> : std::true_type {};
+template<template<typename, auto...> class M, typename T, auto ... N>
+struct is_instance_of<M<T, N...>, M> : std::true_type {};
 
 template<typename, typename>
 struct is_same_sig : std::false_type {};
 
-template<template<typename, auto> class C, typename Sig, auto N, auto M>
-struct is_same_sig<C<Sig, N>, C<Sig, M>> : std::true_type {};
+template<template<typename, auto...> class C, typename Sig, auto N, auto M, bool E>
+struct is_same_sig<C<Sig, N, E>, C<Sig, M, E>> : std::true_type {};
 
 /**
  * @brief similar to std::forward but adapted to a context where the real type can't be deduced
