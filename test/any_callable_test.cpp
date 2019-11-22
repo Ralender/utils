@@ -2,61 +2,45 @@
  * tests for any_callable
  */
 
-#include <gtest/gtest.h>
 #include "src/any_callable.hpp"
+#include <gtest/gtest.h>
 
 namespace {
 
-void free_add1_ref(int& a) {
-  a++;
-}
+void free_add1_ref(int &a) { a++; }
 
-int free_add1(int a) {
-  return a + 1;
-}
+int free_add1(int a) { return a + 1; }
 
-int free_add2(int a) {
-  return a + 2;
-}
+int free_add2(int a) { return a + 2; }
 
-std::string free_add_a(const std::string& str) {
-  return str + 'a';
-}
+std::string free_add_a(const std::string &str) { return str + 'a'; }
 
 int global = 0;
 
-void free_func() {
-  global++;
-}
+void free_func() { global++; }
 
-template<typename T>
-using any_callable = sg::any_callable<T, 8>;
+template <typename T> using any_callable = sg::any_callable<T, 8>;
 
-static_assert(!any_callable<void()>::fit_sbo < std::string > );
+static_assert(!any_callable<void()>::fit_sbo<std::string>);
 // string is used as a non-trivial type that doesn't fit in sbo
 
-}
+} // namespace
 
 TEST(callable, call_stateless_lambda_int) {
-  any_callable<int(int)> add1([](int i) {
-    return i + 1;
-  });
+  any_callable<int(int)> add1([](int i) { return i + 1; });
   ASSERT_EQ(add1(1), 2);
   ASSERT_EQ(add1(add1(1)), 3);
 }
 
 TEST(callable, call_stateless_lambda_string) {
-  any_callable<std::string(std::string)> add1([](std::string i) {
-    return i + 'a';
-  });
+  any_callable<std::string(std::string)> add1(
+      [](std::string i) { return i + 'a'; });
   ASSERT_EQ(add1(""), "a");
   ASSERT_EQ(add1(add1("b")), "baa");
 }
 
 TEST(callable, call_stateless_lambda_int_ref) {
-  any_callable<void(int&)> add1([](int& i) {
-    i = i + 1;
-  });
+  any_callable<void(int &)> add1([](int &i) { i = i + 1; });
   int i = 1;
   add1(i);
   ASSERT_EQ(i, 2);
@@ -65,9 +49,7 @@ TEST(callable, call_stateless_lambda_int_ref) {
 }
 
 TEST(callable, call_stateless_lambda_string_ref) {
-  any_callable<void(std::string&)> add1([](std::string& i) {
-    i += 'a';
-  });
+  any_callable<void(std::string &)> add1([](std::string &i) { i += 'a'; });
   std::string tmp = "b";
   ASSERT_EQ(tmp, "b");
   add1(tmp);
@@ -78,9 +60,7 @@ TEST(callable, call_stateless_lambda_string_ref) {
 
 TEST(callable, call_statefull_ref_lambda_int) {
   int i = 0;
-  any_callable<void()> add1([&i]() {
-    i++;
-  });
+  any_callable<void()> add1([&i]() { i++; });
 
   ASSERT_EQ(i, 0);
   add1();
@@ -91,9 +71,7 @@ TEST(callable, call_statefull_ref_lambda_int) {
 
 TEST(callable, call_statefull_ref_lambda_string) {
   std::string str;
-  any_callable<void()> adda([&]() {
-    str.push_back('a');
-  });
+  any_callable<void()> adda([&]() { str.push_back('a'); });
   ASSERT_EQ(str, "");
   adda();
   ASSERT_EQ(str, "a");
@@ -103,17 +81,13 @@ TEST(callable, call_statefull_ref_lambda_string) {
 
 TEST(callable, call_statefull_copy_lambda_int) {
   int i = -2;
-  any_callable<int()> ref([=]() {
-    return i;
-  });
+  any_callable<int()> ref([=]() { return i; });
   ASSERT_EQ(ref(), -2);
 }
 
 TEST(callable, call_statefull_copy_lambda_string) {
   std::string i = "a";
-  any_callable<std::string()> ref([=]() {
-    return i;
-  });
+  any_callable<std::string()> ref([=]() { return i; });
   ASSERT_EQ(ref(), "a");
 }
 
@@ -124,7 +98,7 @@ TEST(callable, call_func_ptr_int) {
 }
 
 TEST(callable, call_func_ptr_int_ref) {
-  any_callable<void(int&)> ref(&free_add1_ref);
+  any_callable<void(int &)> ref(&free_add1_ref);
   int tmp = 0;
   ASSERT_EQ(tmp, 0);
   ref(tmp);
@@ -144,9 +118,7 @@ TEST(callable, call_func_ptr_global_state) {
 }
 
 TEST(callable, move_call_stateless_lambda) {
-  any_callable<int(int)> add1([](int i) {
-    return i + 1;
-  });
+  any_callable<int(int)> add1([](int i) { return i + 1; });
   any_callable<int(int)> cop(std::move(add1));
   ASSERT_EQ(cop(1), 2);
   ASSERT_EQ(cop(cop(1)), 3);
@@ -162,9 +134,7 @@ TEST(callable, move_func_ptr_int) {
 
 TEST(callable, move_call_statefull_ref_lambda_int) {
   int i = 0;
-  any_callable<void()> add1([&i]() {
-    i++;
-  });
+  any_callable<void()> add1([&i]() { i++; });
   any_callable<void()> cop(std::move(add1));
   ASSERT_EQ(i, 0);
   cop();
@@ -175,9 +145,7 @@ TEST(callable, move_call_statefull_ref_lambda_int) {
 
 TEST(callable, move_call_statefull_ref_lambda_string) {
   std::string str;
-  any_callable<void()> adda([&]() {
-    str.push_back('a');
-  });
+  any_callable<void()> adda([&]() { str.push_back('a'); });
   any_callable<void()> cop(std::move(adda));
   ASSERT_EQ(str, "");
   cop();
@@ -188,18 +156,14 @@ TEST(callable, move_call_statefull_ref_lambda_string) {
 
 TEST(callable, move_call_statefull_copy_lambda_int) {
   int i = -2;
-  any_callable<int()> ref([=]() {
-    return i;
-  });
+  any_callable<int()> ref([=]() { return i; });
   any_callable<int()> cop(std::move(ref));
   ASSERT_EQ(cop(), -2);
 }
 
 TEST(callable, move_call_statefull_copy_lambda_string) {
   std::string i = "a";
-  any_callable<std::string()> ref([=]() {
-    return i;
-  });
+  any_callable<std::string()> ref([=]() { return i; });
   any_callable<std::string()> cop(std::move(ref));
   ASSERT_EQ(cop(), "a");
 }
@@ -379,11 +343,18 @@ TEST(callable, is_empty_false) {
 
 TEST(callable, type_traits) {
   static_assert(std::is_nothrow_move_constructible_v<any_callable<int()>>);
-  static_assert(std::is_nothrow_move_constructible_v<any_callable<std::string(std::string)>>);
+  static_assert(std::is_nothrow_move_constructible_v<
+                any_callable<std::string(std::string)>>);
   static_assert(std::is_nothrow_move_assignable_v<any_callable<int()>>);
-  static_assert(std::is_nothrow_move_assignable_v<any_callable<std::string(std::string)>>);
-  static_assert(std::is_same_v<int, std::decay_t<decltype(std::declval<const any_callable<int()>>()())>>);
-  static_assert(std::is_same_v<std::string,
-                               std::decay_t<decltype(std::declval<const any_callable<std::string(std::string)>>()(std::declval<
-                                 std::string>()))>>);
+  static_assert(std::is_nothrow_move_assignable_v<
+                any_callable<std::string(std::string)>>);
+  static_assert(
+      std::is_same_v<int, std::decay_t<decltype(
+                              std::declval<const any_callable<int()>>()())>>);
+  static_assert(
+      std::is_same_v<
+          std::string,
+          std::decay_t<decltype(
+              std::declval<const any_callable<std::string(std::string)>>()(
+                  std::declval<std::string>()))>>);
 }

@@ -3,13 +3,13 @@
 
 #ifndef SG_TRAILLING_OBJECT_H
 
-#include "llvm/Support/TrailingObjects.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Support/TrailingObjects.h"
 
 namespace llvm {
 
 /// utility class used to indicate a count of a known type.
-template<typename T> struct TrailingObjCount {
+template <typename T> struct TrailingObjCount {
   size_t Count;
   TrailingObjCount(size_t C) : Count(C) {}
 };
@@ -17,92 +17,86 @@ template<typename T> struct TrailingObjCount {
 namespace trailing_objects_internal {
 
 /// used to interact with parameter packs.
-template<typename...> struct Pack {};
+template <typename...> struct Pack {};
 
-template<typename...> struct MergePack {};
-template<typename... Tys1, typename... Tys2>
+template <typename...> struct MergePack {};
+template <typename... Tys1, typename... Tys2>
 struct MergePack<Pack<Tys1...>, Pack<Tys2...>> {
   using type = Pack<Tys1..., Tys2...>;
 };
 
-class HierarchicalTrailingObjectsImpl
-    : TrailingObjectsBase {
+class HierarchicalTrailingObjectsImpl : TrailingObjectsBase {
 protected:
-
-  template<typename...> struct MergeTrailingPack {};
-  template<typename BaseType, typename TrailingTysPack>
+  template <typename...> struct MergeTrailingPack {};
+  template <typename BaseType, typename TrailingTysPack>
   struct MergeTrailingPack<BaseType, TrailingTysPack> {
     using type = typename MergePack<
         typename MergeTrailingPack<
             typename BaseType::Trailing::Parent,
             typename BaseType::Trailing::TrailingTysPack>::type,
-        TrailingTysPack
-    >::type;
+        TrailingTysPack>::type;
   };
 
-  template<typename TrailingTysPack>
+  template <typename TrailingTysPack>
   struct MergeTrailingPack<void, TrailingTysPack> {
     using type = TrailingTysPack;
   };
 
   /// Emit a pack of all type before ToFind in FirstCandidate and Others.
-  template<typename ToFind, typename FirstCandidate, typename... Others>
+  template <typename ToFind, typename FirstCandidate, typename... Others>
   struct PackBeforeType {
     using type = typename MergePack<
         Pack<FirstCandidate>,
         typename PackBeforeType<ToFind, Others...>::type>::type;
   };
 
-  template<typename ToFind, typename LastCandidate>
+  template <typename ToFind, typename LastCandidate>
   struct PackBeforeType<ToFind, LastCandidate> {
     static_assert(!std::is_same<ToFind, LastCandidate>::value, "no such type");
   };
 
-  template<typename ToFind> struct PackBeforeType<ToFind, ToFind> {
+  template <typename ToFind> struct PackBeforeType<ToFind, ToFind> {
     using type = Pack<>;
   };
 
-  template<typename ToFind, typename... Others>
+  template <typename ToFind, typename... Others>
   struct PackBeforeType<ToFind, ToFind, Others...> {
     using type = Pack<>;
   };
 
-  template<typename BaseTy>
-  using RecursivePack =
-  MergeTrailingPack<BaseTy, Pack<>>;
+  template <typename BaseTy>
+  using RecursivePack = MergeTrailingPack<BaseTy, Pack<>>;
 
-  template<typename ...>
-  struct MaxTrailingAlign {};
+  template <typename...> struct MaxTrailingAlign {};
 
-  template<typename ... Tys>
-  struct MaxTrailingAlign<Pack<Tys...>> {
+  template <typename... Tys> struct MaxTrailingAlign<Pack<Tys...>> {
     static constexpr size_t value =
         llvm::trailing_objects_internal::AlignmentCalcHelper<Tys...>::Alignment;
   };
 
-  template<typename P, typename T,
-      typename std::enable_if<!std::is_final<T>::value, int>::type = 0>
+  template <typename P, typename T,
+            typename std::enable_if<!std::is_final<T>::value, int>::type = 0>
   constexpr size_t getObjectSizeSFINAE(T *Ptr) {
     size_t Ret = Ptr->getObjectSize();
     assert(Ret >= sizeof(T));
     return Ret;
   }
 
-  template<typename P, typename T,
-      typename std::enable_if<std::is_final<T>::value &&
-          !std::is_same<P, void>::value,
-                              int>::type = 0>
+  template <typename P, typename T,
+            typename std::enable_if<std::is_final<T>::value &&
+                                        !std::is_same<P, void>::value,
+                                    int>::type = 0>
   constexpr size_t getObjectSizeSFINAE(T *Ptr) {
     assert(getObjectSizeSFINAE<typename P::Trailing::Parent>(
-        static_cast<P *>(Ptr)) == sizeof(T) &&
-        "incorrect size getter");
+               static_cast<P *>(Ptr)) == sizeof(T) &&
+           "incorrect size getter");
     return sizeof(T);
   }
 
-  template<typename P, typename T,
-      typename std::enable_if<std::is_final<T>::value &&
-          std::is_same<P, void>::value,
-                              int>::type = 0>
+  template <typename P, typename T,
+            typename std::enable_if<std::is_final<T>::value &&
+                                        std::is_same<P, void>::value,
+                                    int>::type = 0>
   constexpr size_t getObjectSizeSFINAE(T *Ptr) {
     return sizeof(T);
   }
@@ -111,58 +105,56 @@ protected:
     return CurrentSize;
   }
 
-  template<typename First, typename... OtherTys>
+  template <typename First, typename... OtherTys>
   static constexpr unsigned
   InternalComputeAlignedSize(size_t CurrentSize,
                              TrailingObjCount<First> FirstTrailingObjCount,
                              OtherTys... Others) {
     return InternalComputeAlignedSize(
         (FirstTrailingObjCount.Count
-         ? llvm::alignTo<alignof(First)>(CurrentSize) +
-                sizeof(First) * FirstTrailingObjCount.Count
-         : CurrentSize),
+             ? llvm::alignTo<alignof(First)>(CurrentSize) +
+                   sizeof(First) * FirstTrailingObjCount.Count
+             : CurrentSize),
         Others...);
   }
 
-  template<typename BaseTy, typename... Tys>
-  size_t ComputeSelfTrailingOffset(BaseTy *Ptr,
-                                   size_t CurrentSize,
+  template <typename BaseTy, typename... Tys>
+  size_t ComputeSelfTrailingOffset(BaseTy *Ptr, size_t CurrentSize,
                                    Pack<Tys...>) {
     size_t Ret = InternalComputeAlignedSize(
         CurrentSize, TrailingObjCount<Tys>{Ptr->BaseTy::numTrailingObjects(
-            OverloadToken < Tys > {})}...);
+                         OverloadToken<Tys>{})}...);
     return Ret;
   }
 
-  template<typename ParentType,
-      typename std::enable_if<std::is_same<ParentType, void>::value,
-                              int>::type = 0>
+  template <typename ParentType,
+            typename std::enable_if<std::is_same<ParentType, void>::value,
+                                    int>::type = 0>
   size_t getParentPrevTrailingSize(ParentType *Ptr, size_t CurrentSize) {
     return CurrentSize;
   }
-  template<typename ParentType,
-      typename std::enable_if<!std::is_same<ParentType, void>::value,
-                              int>::type = 0>
+  template <typename ParentType,
+            typename std::enable_if<!std::is_same<ParentType, void>::value,
+                                    int>::type = 0>
   size_t getParentPrevTrailingSize(ParentType *Ptr, size_t CurrentSize) {
     return Ptr->ParentType::Trailing::AddSelfTrailingSize(CurrentSize);
   }
 
-  template<typename ...>
-  struct FirstType {};
+  template <typename...> struct FirstType {};
 
-  template<typename First, typename ... Others>
+  template <typename First, typename... Others>
   struct FirstType<First, Others...> {
     using type = First;
   };
 
-  template<typename T, typename std::enable_if<std::is_same<T, void>::value,
-                                               int>::type = 0>
+  template <typename T, typename std::enable_if<std::is_same<T, void>::value,
+                                                int>::type = 0>
   static constexpr size_t AddSelfTrailingSizeSFINAE(T *, size_t CurrentSize) {
     return CurrentSize;
   }
 
-  template<typename T, typename std::enable_if<!std::is_same<T, void>::value,
-                                               int>::type = 0>
+  template <typename T, typename std::enable_if<!std::is_same<T, void>::value,
+                                                int>::type = 0>
   static constexpr size_t AddSelfTrailingSizeSFINAE(T *Prev,
                                                     size_t CurrentSize) {
     return Prev->T::Trailing::AddSelfTrailingSize(CurrentSize);
@@ -245,8 +237,9 @@ protected:
 ///  compile time because we can know the size at compile-time.
 ///  - getObjectSize can often be implemented more and more efficiently as the
 ///  hierarchy goes deeper because less classes can inherit from the the
-template<typename BaseTy, typename ParentBaseTy, typename... TrailingTys>
-class HierarchicalTrailingObjects : trailing_objects_internal::HierarchicalTrailingObjectsImpl {
+template <typename BaseTy, typename ParentBaseTy, typename... TrailingTys>
+class HierarchicalTrailingObjects
+    : trailing_objects_internal::HierarchicalTrailingObjectsImpl {
 public:
   using Base = BaseTy;
   using Parent = ParentBaseTy;
@@ -262,25 +255,22 @@ private:
   friend class HierarchicalTrailingObjectsImpl;
 
   size_t constexpr AddSelfTrailingSize(size_t CurrentSize) {
-    return ComputeSelfTrailingOffset(getDerived(),
-                                     AddSelfTrailingSizeSFINAE(getDerivedParent(),
-                                                               CurrentSize),
-                                     trailing_objects_internal::Pack<TrailingTys...>{});
+    return ComputeSelfTrailingOffset(
+        getDerived(),
+        AddSelfTrailingSizeSFINAE(getDerivedParent(), CurrentSize),
+        trailing_objects_internal::Pack<TrailingTys...>{});
   }
 
-  template<typename BaseType, typename T> T *getTrailingObjectsImpl() {
-    assert(
-        getDerived()->BaseTy::numTrailingObjects(OverloadToken < T > {}) > 0 &&
-            "no element of that kind stored");
+  template <typename BaseType, typename T> T *getTrailingObjectsImpl() {
+    assert(getDerived()->BaseTy::numTrailingObjects(OverloadToken<T>{}) > 0 &&
+           "no element of that kind stored");
     return reinterpret_cast<T *>(llvm::alignTo<alignof(T)>(
         reinterpret_cast<uintptr_t>(getDerived()) +
-            getObjectSizeSFINAE<ParentBaseTy, BaseTy>(getDerived()) +
-            ComputeSelfTrailingOffset(getDerived(),
-                                      getParentPrevTrailingSize<ParentBaseTy>(
-                                          getDerivedParent(),
-                                          0),
-                                      typename PackBeforeType<T,
-                                                              TrailingTys...>::type{})));
+        getObjectSizeSFINAE<ParentBaseTy, BaseTy>(getDerived()) +
+        ComputeSelfTrailingOffset(
+            getDerived(),
+            getParentPrevTrailingSize<ParentBaseTy>(getDerivedParent(), 0),
+            typename PackBeforeType<T, TrailingTys...>::type{})));
   }
 
 public:
@@ -294,38 +284,43 @@ public:
   using OverloadToken = typename ParentType::template OverloadToken<T>;
 #endif
 
-  template<typename... Tys>
+  template <typename... Tys>
   static constexpr unsigned
   additionalSizeToAlloc(TrailingObjCount<Tys>... Counts) {
     static_assert(std::is_same<typename RecursivePack<BaseTy>::type,
                                trailing_objects_internal::Pack<Tys...>>::value,
                   "incorrect types");
-    static_assert(MaxTrailingAlign<typename RecursivePack<BaseTy>::type>::value
-                      <= alignof(BaseTy),
-                  "alignment cannot be calculated correctly; over-align BaseTy to fixe this");
+    static_assert(
+        MaxTrailingAlign<typename RecursivePack<BaseTy>::type>::value <=
+            alignof(BaseTy),
+        "alignment cannot be calculated correctly; over-align BaseTy to fixe "
+        "this");
     return InternalComputeAlignedSize(0, Counts...);
   }
-  template<typename... Tys>
+  template <typename... Tys>
   static constexpr unsigned totalSizeToAlloc(TrailingObjCount<Tys>... Counts) {
     return sizeof(BaseTy) + additionalSizeToAlloc(Counts...);
   }
 
-  /// Return a pointer on the first element of type T stored in trailling space by
-  template<typename T> T *getTrailingObjects() {
+  /// Return a pointer on the first element of type T stored in trailling space
+  /// by
+  template <typename T> T *getTrailingObjects() {
     return getTrailingObjectsImpl<BaseTy, T>();
   }
-  template<typename T> T *getTrailingObjects() const {
-    return const_cast<HierarchicalTrailingObjects<BaseTy, ParentBaseTy, TrailingTys...> *>(this)
+  template <typename T> T *getTrailingObjects() const {
+    return const_cast<HierarchicalTrailingObjects<BaseTy, ParentBaseTy,
+                                                  TrailingTys...> *>(this)
         ->template getTrailingObjects<T>();
   }
 
-  template<typename T> llvm::MutableArrayRef<T> getTrailingArray() {
-    return llvm::MutableArrayRef<T>(getTrailingObjectsImpl<BaseTy, T>(),
-                                    getDerived()->BaseTy::numTrailingObjects(
-                                        OverloadToken<T>{}));
+  template <typename T> llvm::MutableArrayRef<T> getTrailingArray() {
+    return llvm::MutableArrayRef<T>(
+        getTrailingObjectsImpl<BaseTy, T>(),
+        getDerived()->BaseTy::numTrailingObjects(OverloadToken<T>{}));
   }
-  template<typename T> llvm::ArrayRef<T> getTrailingArray() const {
-    return const_cast<HierarchicalTrailingObjects<BaseTy, ParentBaseTy, TrailingTys...> *>(this)
+  template <typename T> llvm::ArrayRef<T> getTrailingArray() const {
+    return const_cast<HierarchicalTrailingObjects<BaseTy, ParentBaseTy,
+                                                  TrailingTys...> *>(this)
         ->template getTrailingArray<T>();
   }
 };
@@ -336,6 +331,6 @@ public:
   friend class ::llvm::trailing_objects_internal::                             \
       HierarchicalTrailingObjectsImpl
 
-}
+} // namespace llvm
 
 #endif
